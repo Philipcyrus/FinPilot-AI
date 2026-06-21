@@ -30,8 +30,9 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
+# env files (keep secrets out; the template is committed)
 .env*
+!.env.example
 
 # vercel
 .vercel
@@ -39,3 +40,31 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# FinPilot local DB
+prisma/*.db
+prisma/*.db-journal
+*.db
+
+# AI assistant files & local context (not for the public repo)
+CLAUDE.md
+AGENTS.md
+.claude/
+.cursor/
+.aider*
+.continue/
+.mcp.json
+**/*.local.*
+
+# scratch / local dev utilities
+/scripts/check-engines.ts
+
+# personal / sensitive data exports
+*.csv
+!docs/**/*.csv
+secrets.*
+*.key
+
+# product brief / prompt spec (local-only)
+docs/Code_prompt.md
+docs/*prompt*

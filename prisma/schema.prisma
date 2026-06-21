@@ -1,0 +1,210 @@
+// FinPilot AI — Financial Digital Twin schema (SQLite).
+// JSON-shaped columns are stored as String (SQLite has no native JSON);
+// use jsonField()/parseJson() helpers in src/lib/db.ts.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./finpilot.db"
+}
+
+model User {
+  id            String   @id @default(cuid())
+  name          String
+  email         String?
+  monthlyIncome Float    @default(0)
+  riskProfile   String   @default("balanced") // conservative | balanced | aggressive
+  preferences   String   @default("{}") // JSON
+  createdAt     DateTime @default(now())
+
+  accounts      Account[]
+  holdings      Holding[]
+  transactions  Transaction[]
+  sips          SIP[]
+  goals         Goal[]
+  insights      Insight[]
+  recommendations Recommendation[]
+  memories      Memory[]
+  watchlist     Watchlist[]
+  conversations Conversation[]
+}
+
+model Account {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name       String
+  type       String   // broker | bank | wallet | manual
+  provider   String   // groww | zerodha | angelone | upstox | manual | hdfc | icici ...
+  currency   String   @default("INR")
+  balance    Float    @default(0)
+  createdAt  DateTime @default(now())
+
+  holdings     Holding[]
+  transactions Transaction[]
+}
+
+model Holding {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accountId    String?
+  account      Account? @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  symbol       String   // e.g. TCS, INFY, or MF scheme code
+  name         String
+  assetClass   String   // equity | mutual_fund | etf | gold | debt | cash | crypto
+  sector       String   @default("Other")
+  marketCap    String   @default("large") // large | mid | small | na
+  quantity     Float
+  avgCost      Float
+  currentPrice Float
+  updatedAt    DateTime @default(now())
+}
+
+model Transaction {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accountId String?
+  account   Account? @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  date      DateTime
+  direction String   // in | out
+  type      String   // salary | expense | buy | sell | dividend | sip | transfer | interest
+  amount    Float
+  category  String   @default("Other") // Housing | Food | Travel | ...
+  merchant  String   @default("")
+  symbol    String?  // for buy/sell/dividend
+  note      String   @default("")
+}
+
+model SIP {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name       String
+  symbol     String   // MF scheme code
+  amount     Float
+  frequency  String   @default("monthly") // monthly | weekly | quarterly
+  startDate  DateTime
+  active     Boolean  @default(true)
+  goalId     String?
+}
+
+model Goal {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name          String
+  type          String   // retirement | house | education | emergency | wealth | custom
+  targetAmount  Float
+  currentAmount Float    @default(0)
+  targetDate    DateTime
+  monthlyContribution Float @default(0)
+  priority      Int      @default(2) // 1 high - 3 low
+  createdAt     DateTime @default(now())
+}
+
+model Instrument {
+  id        String   @id @default(cuid())
+  symbol    String   @unique
+  name      String
+  type      String   // stock | etf | mf | index | sector | commodity | currency
+  sector    String   @default("Other")
+  meta      String   @default("{}") // JSON cache (fundamentals, holdings...)
+  updatedAt DateTime @default(now())
+
+  prices    PriceSnapshot[]
+}
+
+model PriceSnapshot {
+  id           String     @id @default(cuid())
+  instrumentId String
+  instrument   Instrument @relation(fields: [instrumentId], references: [id], onDelete: Cascade)
+  date         DateTime
+  close        Float
+
+  @@unique([instrumentId, date])
+}
+
+model ResearchReport {
+  id         String   @id @default(cuid())
+  entityRef  String   // symbol or "TCS vs INFY"
+  entityName String
+  mode       String   // quick | standard | deep | institutional
+  sections   String   // JSON array of {key,title,body}
+  thesis     String   @default("")
+  confidence Float     @default(0)
+  agentTrace String   @default("[]") // JSON
+  source     String   @default("deterministic") // llm provider or deterministic
+  createdAt  DateTime @default(now())
+}
+
+model Insight {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type       String   // spending | portfolio | behavioral | goal | risk ...
+  title      String
+  body       String
+  severity   String   @default("info") // info | positive | warning | critical
+  evidence   String   @default("[]") // JSON
+  confidence Float    @default(0.7)
+  route      String   @default("/")
+  createdAt  DateTime @default(now())
+}
+
+model Recommendation {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title       String
+  explanation String
+  evidence    String   @default("[]") // JSON
+  confidence  Float    @default(0.7)
+  riskLevel   String   @default("low") // low | medium | high
+  impact      String   @default("medium")
+  alternatives String  @default("[]") // JSON
+  category    String   @default("general")
+  createdAt   DateTime @default(now())
+}
+
+model Conversation {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String   @default("New chat")
+  createdAt DateTime @default(now())
+  messages  ChatMessage[]
+}
+
+model ChatMessage {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  role           String       // user | assistant
+  content        String
+  createdAt      DateTime     @default(now())
+}
+
+model Memory {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  key       String
+  value     String
+  source    String   @default("system")
+  createdAt DateTime @default(now())
+}
+
+model Watchlist {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  symbol    String
+  name      String
+  type      String   @default("stock")
+  createdAt DateTime @default(now())
+}

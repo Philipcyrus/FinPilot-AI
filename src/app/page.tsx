@@ -1,65 +1,125 @@
-import Image from "next/image";
+import Link from "next/link";
+import { getDashboard } from "@/lib/dashboard";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { ScoreGauge } from "@/components/ScoreGauge";
+import { ScoreBreakdown, AllocationLegend } from "@/components/ScoreBreakdown";
+import { InsightCard } from "@/components/InsightCard";
+import { MetricCard, AiBadge } from "@/components/common";
+import { AllocationDonut, TrendArea } from "@/components/charts";
+import { RecommendationPreview } from "@/components/RecommendationCard";
+import { formatINR, formatPercent } from "@/lib/utils";
+import { TrendingUp, Wallet, PiggyBank, Target, ArrowRight, Sparkles } from "lucide-react";
 
-export default function Home() {
+export const dynamic = "force-dynamic";
+
+export default async function OverviewPage() {
+  const d = await getDashboard();
+  const { financialHealth: fh, portfolio, savings, netWorth } = d;
+  const goalsOnTrack = d.goals.filter((g) => g.status === "on-track").length;
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className="space-y-6 animate-in">
+      {/* Greeting */}
+      <div className="flex flex-col gap-1">
+        <div className="flex items-center gap-2">
+          <h1 className="text-2xl font-bold tracking-tight">Good evening, {d.picture.user.name.split(" ")[0]}</h1>
+          <AiBadge label="Digital Twin active" />
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+        <p className="text-sm text-[var(--muted)]">{fh.summary}</p>
+      </div>
+
+      {/* Hero: health score + key metrics */}
+      <div className="grid gap-5 lg:grid-cols-3">
+        <Card className="lg:col-span-1">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-[var(--primary)]" /> Financial Health Score
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col items-center">
+            <ScoreGauge score={fh.score} sublabel={`Weakest: ${fh.evidence[2]?.value}`} />
+            <Link href="/recommendations" className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-[var(--primary)]">
+              See how to improve <ArrowRight className="h-3 w-3" />
+            </Link>
+          </CardContent>
+        </Card>
+
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle>Score breakdown</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ScoreBreakdown subScores={fh.subScores} />
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Metric row */}
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <MetricCard label="Net Worth" value={formatINR(netWorth, { compact: true })} sub="Investments + reserves" icon={<TrendingUp className="h-4 w-4" />} accent="#6366f1" />
+        <MetricCard label="Portfolio Value" value={formatINR(portfolio.totalValue, { compact: true })} delta={portfolio.pnlPct} deltaLabel="all-time" icon={<Wallet className="h-4 w-4" />} />
+        <MetricCard label="Savings Rate" value={`${savings.savingsRate.toFixed(0)}%`} sub={`${savings.emergencyMonths.toFixed(1)} mo emergency fund`} icon={<PiggyBank className="h-4 w-4" />} accent="#10b981" />
+        <MetricCard label="Goals On Track" value={`${goalsOnTrack}/${d.goals.length}`} sub="success-weighted" icon={<Target className="h-4 w-4" />} accent="#0ea5e9" />
+      </div>
+
+      {/* Net worth trend + allocation */}
+      <div className="grid gap-5 lg:grid-cols-3">
+        <Card className="lg:col-span-2">
+          <CardHeader className="flex-row items-center justify-between">
+            <div>
+              <CardTitle>Portfolio Trajectory</CardTitle>
+              <p className="text-xs text-[var(--muted)]">Reconstructed from price history · XIRR {formatPercent(portfolio.xirr)}</p>
+            </div>
+            <Button asChild variant="ghost" size="sm">
+              <Link href="/portfolio">Details <ArrowRight className="h-3.5 w-3.5" /></Link>
+            </Button>
+          </CardHeader>
+          <CardContent>
+            <TrendArea data={portfolio.history} color="#6366f1" />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Asset Allocation</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <AllocationDonut data={portfolio.byAssetClass} height={170} />
+            <div className="mt-4">
+              <AllocationLegend data={portfolio.byAssetClass} />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Insights */}
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-semibold">What needs your attention</h2>
+        <span className="text-xs text-[var(--muted)]">{d.insights.length} insights · evidence-backed</span>
+      </div>
+      <div className="grid gap-4 md:grid-cols-2">
+        {d.insights.slice(0, 4).map((i) => (
+          <InsightCard key={i.id} insight={i} />
+        ))}
+      </div>
+
+      {/* Recommendations preview */}
+      <Card>
+        <CardHeader className="flex-row items-center justify-between">
+          <CardTitle className="flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-[var(--primary)]" /> Top recommendations
+          </CardTitle>
+          <Button asChild variant="ghost" size="sm">
+            <Link href="/recommendations">View all <ArrowRight className="h-3.5 w-3.5" /></Link>
+          </Button>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {d.recommendations.slice(0, 3).map((r) => (
+            <RecommendationPreview key={r.id} rec={r} />
+          ))}
+        </CardContent>
+      </Card>
     </div>
   );
 }
